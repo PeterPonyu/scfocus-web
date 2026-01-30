@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from 'react'
 import { Upload, FileUp, X, CheckCircle } from 'lucide-react'
+import { useLanguage } from '@/lib/LanguageContext'
 
 interface FileUploaderProps {
   onUpload: (file: File) => void
@@ -9,6 +10,7 @@ interface FileUploaderProps {
 }
 
 export default function FileUploader({ onUpload, isLoading }: FileUploaderProps) {
+  const { t } = useLanguage()
   const [dragActive, setDragActive] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
@@ -77,10 +79,10 @@ export default function FileUploader({ onUpload, isLoading }: FileUploaderProps)
           </div>
           <div>
             <p className="text-sm font-medium text-gray-700">
-              拖放文件到此处或 <span className="text-green-600">点击选择</span>
+              {t.upload.dragDrop} <span className="text-green-600">{t.upload.clickSelect}</span>
             </p>
             <p className="text-xs text-gray-500 mt-1">
-              支持 .h5ad, .csv 格式
+              {t.upload.supportedFormats}
             </p>
           </div>
         </div>
@@ -122,7 +124,7 @@ export default function FileUploader({ onUpload, isLoading }: FileUploaderProps)
           ) : (
             <FileUp className="w-5 h-5" />
           )}
-          {isLoading ? '上传中...' : '上传并加载数据'}
+          {isLoading ? t.upload.uploading : t.upload.uploadButton}
         </button>
       )}
     </div>
