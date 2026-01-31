@@ -83,6 +83,150 @@ class ScFocusService:
                 "message": f"数据加载失败: {str(e)}"
             }
     
+    def load_demo_data(self, session_id: str, dataset_id: str) -> Dict[str, Any]:
+        """
+        加载示例数据集
+        
+        Parameters
+        ----------
+        session_id : str
+            会话ID
+        dataset_id : str
+            数据集ID: paul15, simulation_bifurcation, simulation_tree, pbmc3k
+            
+        Returns
+        -------
+        Dict
+            数据概览信息
+        """
+        try:
+            if dataset_id == "paul15":
+                # 加载 Paul et al. 2015 小鼠造血数据
+                adata = sc.datasets.paul15()
+                self._update_status(session_id, "loading", 50, "加载 Paul15 小鼠造血数据...")
+                
+            elif dataset_id == "pbmc3k":
+                # 加载 PBMC 3k 数据
+                adata = sc.datasets.pbmc3k()
+                self._update_status(session_id, "loading", 50, "加载 PBMC 3k 数据...")
+                
+            elif dataset_id == "simulation_bifurcation":
+                # 生成分叉轨迹模拟数据
+                adata = self._generate_bifurcation_simulation()
+                self._update_status(session_id, "loading", 50, "生成分叉轨迹模拟数据...")
+                
+            elif dataset_id == "simulation_tree":
+                # 生成树状轨迹模拟数据
+                adata = self._generate_tree_simulation()
+                self._update_status(session_id, "loading", 50, "生成树状轨迹模拟数据...")
+                
+            else:
+                return {"success": False, "message": f"未知的数据集: {dataset_id}"}
+            
+            self.datasets[session_id] = adata
+            self._update_status(session_id, "loaded", 100, f"数据集 {dataset_id} 加载完成")
+            
+            return {
+                "success": True,
+                "dataset_id": dataset_id,
+                "n_cells": adata.n_obs,
+                "n_genes": adata.n_vars,
+                "obs_columns": list(adata.obs.columns),
+                "var_columns": list(adata.var.columns),
+                "obsm_keys": list(adata.obsm.keys()) if adata.obsm else [],
+                "message": f"成功加载示例数据: {adata.n_obs} 个细胞, {adata.n_vars} 个基因"
+            }
+        except Exception as e:
+            self._update_status(session_id, "error", 0, f"加载失败: {str(e)}")
+            return {"success": False, "message": f"数据加载失败: {str(e)}"}
+    
+    def _generate_bifurcation_simulation(self, n_cells: int = 1000, n_genes: int = 500) -> ad.AnnData:
+        """生成分叉轨迹模拟数据"""
+        np.random.seed(42)
+        
+        # 生成主干 + 两个分支
+        n_trunk = n_cells // 3
+        n_branch = (n_cells - n_trunk) // 2
+        
+        # 主干细胞 (早期)
+        trunk_cells = np.random.randn(n_trunk, n_genes) * 0.5
+        trunk_pseudotime = np.linspace(0, 0.4, n_trunk)
+        trunk_branch = np.zeros(n_trunk)
+        
+        # 分支1细胞
+        branch1_cells = np.random.randn(n_branch, n_genes) * 0.5 + np.array([1] * (n_genes // 2) + [-1] * (n_genes - n_genes // 2))
+        branch1_pseudotime = np.linspace(0.4, 1.0, n_branch)
+        branch1_branch = np.ones(n_branch)
+        
+        # 分支2细胞
+        branch2_cells = np.random.randn(n_branch, n_genes) * 0.5 + np.array([-1] * (n_genes // 2) + [1] * (n_genes - n_genes // 2))
+        branch2_pseudotime = np.linspace(0.4, 1.0, n_branch)
+        branch2_branch = np.ones(n_branch) * 2
+        
+        # 合并
+        X = np.vstack([trunk_cells, branch1_cells, branch2_cells])
+        pseudotime = np.concatenate([trunk_pseudotime, branch1_pseudotime, branch2_pseudotime])
+        branch = np.concatenate([trunk_branch, branch1_branch, branch2_branch])
+        
+        adata = ad.AnnData(X)
+        adata.obs['pseudotime'] = pseudotime
+        adata.obs['branch'] = branch.astype(int).astype(str)
+        adata.obs_names = [f"cell_{i}" for i in range(n_cells)]
+        adata.var_names = [f"gene_{i}" for i in range(n_genes)]
+        
+        return adata
+    
+    def _generate_tree_simulation(self, n_cells: int = 2000, n_genes: int = 500) -> ad.AnnData:
+        """生成树状轨迹模拟数据"""
+        np.random.seed(42)
+        
+        # 生成具有多个分支的树状结构
+        n_root = n_cells // 5
+        n_branch1 = n_cells // 5
+        n_branch2 = n_cells // 5
+        n_leaf1 = n_cells // 5
+        n_leaf2 = n_cells - n_root - n_branch1 - n_branch2 - n_leaf1
+        
+        # 根节点
+        root_X = np.random.randn(n_root, n_genes) * 0.3
+        root_pt = np.linspace(0, 0.25, n_root)
+        root_branch = np.zeros(n_root)
+        
+        # 分支1
+        branch1_X = np.random.randn(n_branch1, n_genes) * 0.3 + np.random.randn(n_genes) * 0.5
+        branch1_pt = np.linspace(0.25, 0.5, n_branch1)
+        branch1_branch = np.ones(n_branch1)
+        
+        # 分支2
+        branch2_X = np.random.randn(n_branch2, n_genes) * 0.3 - np.random.randn(n_genes) * 0.5
+        branch2_pt = np.linspace(0.25, 0.5, n_branch2)
+        branch2_branch = np.ones(n_branch2) * 2
+        
+        # 叶子1 (从分支1延伸)
+        leaf1_X = np.random.randn(n_leaf1, n_genes) * 0.3 + np.random.randn(n_genes) * 0.8
+        leaf1_pt = np.linspace(0.5, 1.0, n_leaf1)
+        leaf1_branch = np.ones(n_leaf1) * 3
+        
+        # 叶子2 (从分支2延伸)
+        leaf2_X = np.random.randn(n_leaf2, n_genes) * 0.3 - np.random.randn(n_genes) * 0.8
+        leaf2_pt = np.linspace(0.5, 1.0, n_leaf2)
+        leaf2_branch = np.ones(n_leaf2) * 4
+        
+        # 合并
+        X = np.vstack([root_X, branch1_X, branch2_X, leaf1_X, leaf2_X])
+        pseudotime = np.concatenate([root_pt, branch1_pt, branch2_pt, leaf1_pt, leaf2_pt])
+        branch = np.concatenate([root_branch, branch1_branch, branch2_branch, leaf1_branch, leaf2_branch])
+        
+        adata = ad.AnnData(X)
+        adata.obs['pseudotime'] = pseudotime
+        adata.obs['branch'] = branch.astype(int).astype(str)
+        adata.obs['cell_type'] = pd.Categorical(['Root'] * n_root + ['Branch1'] * n_branch1 + 
+                                                 ['Branch2'] * n_branch2 + ['Leaf1'] * n_leaf1 + ['Leaf2'] * n_leaf2)
+        adata.obs_names = [f"cell_{i}" for i in range(n_cells)]
+        adata.var_names = [f"gene_{i}" for i in range(n_genes)]
+        
+        return adata
+    
     def preprocess_data(
         self, 
         session_id: str,

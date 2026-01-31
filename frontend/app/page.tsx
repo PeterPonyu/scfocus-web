@@ -100,6 +100,22 @@ export default function Home() {
     }
   }
 
+  const handleDemoLoad = async (dataset: string) => {
+    if (!sessionId) return
+    setIsLoading(true)
+    try {
+      const response = await api.loadDemoData(sessionId, dataset)
+      if (response.success) {
+        setDataInfo(response)
+        setCurrentStep('preprocess')
+      }
+    } catch (error) {
+      console.error('Demo load failed:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handlePreprocess = async () => {
     if (!sessionId) return
     setIsLoading(true)
@@ -237,7 +253,7 @@ export default function Home() {
                 <Upload className="w-5 h-5 text-green-500" />
                 {t.upload.title}
               </h2>
-              <FileUploader onUpload={handleFileUpload} isLoading={isLoading} />
+              <FileUploader onUpload={handleFileUpload} onDemoLoad={handleDemoLoad} isLoading={isLoading} />
               <div className="mt-4 text-sm text-gray-500">
                 <p>{t.upload.supportedFormats}</p>
                 <p>{t.upload.suggestion}</p>

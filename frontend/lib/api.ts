@@ -28,6 +28,18 @@ export const api = {
     return response.data
   },
 
+  // 加载演示数据
+  loadDemoData: async (sessionId: string, dataset: string) => {
+    const response = await apiClient.post(`/api/data/demo/${sessionId}`, { dataset })
+    return response.data
+  },
+
+  // 获取演示数据列表
+  getDemoDatasets: async () => {
+    const response = await apiClient.get('/api/data/demo-datasets')
+    return response.data
+  },
+
   // 获取数据信息
   getDataInfo: async (sessionId: string) => {
     const response = await apiClient.get(`/api/data/info/${sessionId}`)

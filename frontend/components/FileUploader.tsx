@@ -1,18 +1,27 @@
 'use client'
 
 import { useCallback, useState } from 'react'
-import { Upload, FileUp, X, CheckCircle } from 'lucide-react'
+import { Upload, FileUp, X, CheckCircle, Database, GitBranch, TreePine, Dna } from 'lucide-react'
 import { useLanguage } from '@/lib/LanguageContext'
 
 interface FileUploaderProps {
   onUpload: (file: File) => void
+  onDemoLoad?: (dataset: string) => void
   isLoading: boolean
 }
 
-export default function FileUploader({ onUpload, isLoading }: FileUploaderProps) {
+const DEMO_DATASETS = [
+  { id: 'paul15', icon: Dna, color: 'green' },
+  { id: 'pbmc3k', icon: Database, color: 'blue' },
+  { id: 'simulation_bifurcation', icon: GitBranch, color: 'purple' },
+  { id: 'simulation_tree', icon: TreePine, color: 'orange' },
+] as const
+
+export default function FileUploader({ onUpload, onDemoLoad, isLoading }: FileUploaderProps) {
   const { t } = useLanguage()
   const [dragActive, setDragActive] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [loadingDemo, setLoadingDemo] = useState<string | null>(null)
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -47,8 +56,39 @@ export default function FileUploader({ onUpload, isLoading }: FileUploaderProps)
     }
   }
 
+  const handleDemoSelect = async (datasetId: string) => {
+    if (onDemoLoad && !isLoading && !loadingDemo) {
+      setLoadingDemo(datasetId)
+      try {
+        await onDemoLoad(datasetId)
+      } finally {
+        setLoadingDemo(null)
+      }
+    }
+  }
+
   const clearFile = () => {
     setSelectedFile(null)
+  }
+
+  const getDemoLabel = (id: string) => {
+    const labels: Record<string, string> = {
+      paul15: t.upload.paul15,
+      pbmc3k: t.upload.pbmc3k,
+      simulation_bifurcation: t.upload.simulationBifurcation,
+      simulation_tree: t.upload.simulationTree,
+    }
+    return labels[id] || id
+  }
+
+  const getDemoDesc = (id: string) => {
+    const descs: Record<string, string> = {
+      paul15: t.upload.paul15Desc,
+      pbmc3k: t.upload.pbmc3kDesc,
+      simulation_bifurcation: t.upload.simulationBifurcationDesc,
+      simulation_tree: t.upload.simulationTreeDesc,
+    }
+    return descs[id] || ''
   }
 
   return (
@@ -126,6 +166,46 @@ export default function FileUploader({ onUpload, isLoading }: FileUploaderProps)
           )}
           {isLoading ? t.upload.uploading : t.upload.uploadButton}
         </button>
+      )}
+
+      {/* Demo Datasets Section */}
+      {onDemoLoad && (
+        <>
+          <div className="flex items-center gap-4 my-4">
+            <div className="flex-1 h-px bg-gray-200" />
+            <span className="text-sm text-gray-400">{t.upload.orLoadDemo}</span>
+            <div className="flex-1 h-px bg-gray-200" />
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-gray-700 mb-3">{t.upload.demoDatasets}</p>
+            <div className="grid grid-cols-2 gap-3">
+              {DEMO_DATASETS.map(({ id, icon: Icon, color }) => (
+                <button
+                  key={id}
+                  onClick={() => handleDemoSelect(id)}
+                  disabled={isLoading || loadingDemo !== null}
+                  className={`p-3 border rounded-lg text-left transition-all hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed
+                    ${loadingDemo === id ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-green-400'}`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    {loadingDemo === id ? (
+                      <div className="w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Icon className={`w-4 h-4 text-${color}-500`} />
+                    )}
+                    <span className="text-sm font-medium text-gray-800">
+                      {getDemoLabel(id)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 line-clamp-2">
+                    {getDemoDesc(id)}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
       )}
     </div>
   )

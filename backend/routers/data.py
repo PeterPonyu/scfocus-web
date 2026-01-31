@@ -1,7 +1,7 @@
 """数据管理路由"""
-from fastapi import APIRouter, UploadFile, File, Form
+from fastapi import APIRouter, UploadFile, File, Form, Query
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Literal
 import os
 import shutil
 from services.scfocus_service import scfocus_service
@@ -25,6 +25,70 @@ class DataLoadResponse(BaseModel):
     obs_columns: Optional[List[str]] = None
     var_columns: Optional[List[str]] = None
     obsm_keys: Optional[List[str]] = None
+
+
+class DemoDatasetInfo(BaseModel):
+    """示例数据集信息"""
+    id: str
+    name: str
+    description: str
+    n_cells: int
+    n_genes: int
+    has_pseudotime: bool
+    source: str
+
+
+@router.get("/demo-datasets", response_model=List[DemoDatasetInfo])
+async def list_demo_datasets():
+    """获取可用的示例数据集列表"""
+    return [
+        DemoDatasetInfo(
+            id="paul15",
+            name="Paul et al. 2015 (小鼠造血)",
+            description="小鼠骨髓造血祖细胞分化轨迹数据，包含2730个细胞，常用于轨迹推断基准测试",
+            n_cells=2730,
+            n_genes=3451,
+            has_pseudotime=True,
+            source="scanpy.datasets.paul15()"
+        ),
+        DemoDatasetInfo(
+            id="simulation_bifurcation",
+            name="模拟数据 - 分叉轨迹",
+            description="包含单个分叉点的模拟单细胞轨迹数据，适合测试谱系分支识别",
+            n_cells=1000,
+            n_genes=500,
+            has_pseudotime=True,
+            source="simulation"
+        ),
+        DemoDatasetInfo(
+            id="simulation_tree",
+            name="模拟数据 - 树状轨迹",
+            description="包含多个分支的树状轨迹模拟数据，适合测试复杂谱系结构",
+            n_cells=2000,
+            n_genes=500,
+            has_pseudotime=True,
+            source="simulation"
+        ),
+        DemoDatasetInfo(
+            id="pbmc3k",
+            name="PBMC 3k (人类外周血)",
+            description="10X Genomics提供的3000个人类外周血单核细胞数据",
+            n_cells=2700,
+            n_genes=13714,
+            has_pseudotime=False,
+            source="scanpy.datasets.pbmc3k()"
+        ),
+    ]
+
+
+@router.post("/demo/{session_id}/{dataset_id}")
+async def load_demo_data(
+    session_id: str,
+    dataset_id: Literal["paul15", "simulation_bifurcation", "simulation_tree", "pbmc3k"]
+):
+    """加载示例数据集"""
+    result = scfocus_service.load_demo_data(session_id, dataset_id)
+    return result
 
 
 @router.post("/session", response_model=CreateSessionResponse)
